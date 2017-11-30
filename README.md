@@ -98,11 +98,30 @@ $user = User::find(1);
 
 $user->newSubscription('main', 'gold', ['adicional_assinatura' => 'boa assinatura'])
      ->create(NULL, [
+         'name' => $user->nome,
+         'adicional_cliente' => 'bom cliente'
+     ]);
+```
+Para mais informações dos campos que são suportados pelo Iugu confira a [Documentação oficial](https://iugu.com/referencias/api#assinaturas)
+
+#### Subitens
+Se você desejar adicionar subitens na assinatura, basta passar um quarto parâmetro no método `newSubscription`:
+```php
+$user = User::find(1);
+
+$user->newSubscription('main', 'gold', ['adicional_assinatura' => 'boa assinatura'], [
+        'description' => 'Desconto XXXXXX',
+        'price_cents' => 500,
+        'quantity' => 1,
+        'recurrent' => false
+    ])
+     ->create(NULL, [
 	     'name' => $user->nome,
 	     'adicional_cliente' => 'bom cliente'
 	 ]);
 ```
-Para mais informações dos campos que são suportados pelo Iugu confira a [Documentação oficial](https://iugu.com/referencias/api#assinaturas)
+O valor (price_cents) pode ser negativo ou positivo, caso negativo, o subitem será criado como desconto em sua assinatura.
+Para mais informações dos campos que são suportados pelo Iugu confira a [Documentação oficial](https://dev.iugu.com/v1.0/reference#criar-1)
 
 ### Checando status da assinatura
 

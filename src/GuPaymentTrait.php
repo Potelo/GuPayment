@@ -117,9 +117,9 @@ trait GuPaymentTrait
         return new Collection($cards);
     }
 
-    public function newSubscription($subscription, $plan, $additionalData = [])
+    public function newSubscription($subscription, $plan, $additionalData = [], $subItems = [])
     {
-        return new SubscriptionBuilder($this, $subscription, $plan, $additionalData);
+        return new SubscriptionBuilder($this, $subscription, $plan, $additionalData, $subItems);
     }
 
     /**
