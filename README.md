@@ -105,7 +105,7 @@ $user->newSubscription('main', 'gold', ['adicional_assinatura' => 'boa assinatur
 Para mais informações dos campos que são suportados pelo Iugu confira a [Documentação oficial](https://iugu.com/referencias/api#assinaturas)
 
 #### Subitens
-Se você desejar adicionar subitens na assinatura, basta passar um quarto parâmetro no método `newSubscription`:
+Se você desejar adicionar subitens na assinatura (para planos pagos), basta passar um quarto parâmetro no método `newSubscription`:
 ```php
 $user = User::find(1);
 
