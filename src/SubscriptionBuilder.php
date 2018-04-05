@@ -58,12 +58,13 @@ class SubscriptionBuilder
      * @param  string  $name
      * @param  string  $plan
      */
-    public function __construct($user, $name, $plan, $additionalData)
+    public function __construct($user, $name, $plan, $additionalData, array $subItems = [])
     {
         $this->user = $user;
         $this->name = $name;
         $this->plan = $plan;
         $this->additionalData = $additionalData;
+        $this->subItems = $subItems;
     }
 
     /**
@@ -189,6 +190,7 @@ class SubscriptionBuilder
             'expires_at' => $this->getTrialEndForPayload(),
             'customer_id' => $customerId,
             'only_on_charge_success' => $this->charge_on_success,
+            'subitems' => $this->subItems['subItems'] ?? [],
             'custom_variables' => $customVariables
         ]);
     }
