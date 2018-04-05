@@ -190,9 +190,7 @@ class SubscriptionBuilder
             'expires_at' => $this->getTrialEndForPayload(),
             'customer_id' => $customerId,
             'only_on_charge_success' => $this->charge_on_success,
-            'subitems' => [
-                $this->subItems
-            ],
+            'subitems' => $this->subItems['subItems'] ?? [],
             'custom_variables' => $customVariables
         ]);
     }

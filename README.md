@@ -110,10 +110,10 @@ Se você desejar adicionar subitens na assinatura (para planos pagos), basta pas
 $user = User::find(1);
 
 $user->newSubscription('main', 'gold', ['adicional_assinatura' => 'boa assinatura'], [
-        'description' => 'Desconto XXXXXX',
-        'price_cents' => 500,
-        'quantity' => 1,
-        'recurrent' => false
+        'subItems' => [
+          ['description' => 'Desconto XXXXXX', 'price_cents' => 500, 'quantity' => 1, 'recurrent' => false],
+          ['description' => 'Desconto YYYYYY', 'price_cents' => 100, 'quantity' => 1, 'recurrent' => true]
+        ]
     ])
      ->create(NULL, [
 	     'name' => $user->nome,
