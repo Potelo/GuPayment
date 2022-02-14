@@ -183,8 +183,21 @@ class SubscriptionBuilder
             $this->lastError = $customer->errors;
             return false;
         }
+        $subscriptionIugu = null;
 
-        $subscriptionIugu = $this->user->createIuguSubscription($this->buildPayload($customer->id));
+        try {
+            $subscriptionIugu = $this->user->createIuguSubscription($this->buildPayload($customer->id));
+        } catch (\Exception $e) {
+            if ($e->getCode() === 502) {
+                sleep(5);
+                $userSubscription = $this->user->subscription(getenv('IUGU_SUBSCRIPTION_NAME') ?: config('services.iugu.subscription_name', 'default'));
+                if ($userSubscription) {
+                    $subscriptionIugu = $userSubscription->asIuguSubscription();
+                }
+            } else {
+                throw $e;
+            }
+        }
 
         if (isset($subscriptionIugu->errors)) {
             if (isset($subscriptionIugu->LR)) {
@@ -229,7 +242,7 @@ class SubscriptionBuilder
      */
     protected function getIuguCustomer($token = null, array $options = [])
     {
-        if (! $this->user->getIuguUserId()) {
+        if (!$this->user->getIuguUserId()) {
             $customer = $this->user->createAsIuguCustomer(
                 $token,
                 array_merge($options, array_filter(['coupon' => $this->coupon]))
@@ -238,7 +251,7 @@ class SubscriptionBuilder
             $customer = $this->user->asIuguCustomer();
 
             if (!empty($options)) {
-                foreach($options as $key => $value){
+                foreach ($options as $key => $value) {
                     $customer->{$key} = $value;
                 }
                 $customer->save();
@@ -429,5 +442,4 @@ class SubscriptionBuilder
 
         return $this;
     }
-
 }
