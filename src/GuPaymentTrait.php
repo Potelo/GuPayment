@@ -564,7 +564,7 @@ trait GuPaymentTrait
         if ($key = getenv('IUGU_LOG_ERRORS')) {
             return $key;
         }
-        return config('service.iugu.log_errors', 'true');
+        return config('services.iugu.log_errors', 'true');
     }
 
     /**
