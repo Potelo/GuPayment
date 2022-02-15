@@ -8,11 +8,12 @@ use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Illuminate\Support\Collection;
 use Potelo\GuPayment\Tests\Fixtures\User;
+use Iugu_Subscription as IuguSubscription;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Potelo\GuPayment\Http\Controllers\WebhookController;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class GuPaymentTest extends TestCase
 {
@@ -24,15 +25,17 @@ class GuPaymentTest extends TestCase
 
     protected $iuguSubscriptionModelPlanColumn;
 
-    public static function setUpBeforeClass() : void
+    public static function setUpBeforeClass(): void
     {
-        if (file_exists(__DIR__.'/../.env')) {
-            $dotenv = new \Dotenv\Dotenv(__DIR__.'/../');
+        if (file_exists(__DIR__ . '/../.env')) {
+            $dotenv = \Dotenv\Dotenv::create(__DIR__, '/../.env');
             $dotenv->load();
+        } else {
+            throw new Exception('You need to create an .env file');
         }
     }
 
-    public function setUp() : void
+    public function setUp(): void
     {
         parent::setUp();
 
@@ -80,7 +83,7 @@ class GuPaymentTest extends TestCase
         $this->faker = $this->faker('pt_BR');
     }
 
-    public function tearDown() : void
+    public function tearDown(): void
     {
         $this->schema()->drop('users');
         $this->schema()->drop('subscriptions');
@@ -215,6 +218,30 @@ class GuPaymentTest extends TestCase
         $this->assertFalse($subscription->onGracePeriod());
         $this->assertTrue($subscription->onTrial());
         $this->assertEquals(Carbon::today()->addDays(7)->day, $subscription->trial_ends_at->day);
+    }
+
+    public function testCreatingSubscriptionAfterBadGatewayException()
+    {
+        $user = \Mockery::mock(User::class)->makePartial();
+
+        $user->email = $this->faker->safeEmail;
+        $user->name = $this->faker->name;
+
+        $this->getTestToken();
+        $subscription = $user->subscription('main');
+        $this->assertNull($subscription);
+
+        $user->shouldReceive('createIuguSubscription')->andReturnUsing(function ($options) {
+            IuguSubscription::create($options);
+            throw new \IuguRequestException('', 502);
+        });
+
+        // Create Subscription
+        $subscription = $user->newSubscription('main', 'gold')->create();
+
+        $this->assertTrue($subscription->active());
+        $this->assertFalse($subscription->onTrial());
+        $this->assertEquals($subscription->user_id, $user->id);
     }
 
     public function testCreatingSubscriptionWithDaysToExpire()
@@ -710,7 +737,7 @@ class GuPaymentTest extends TestCase
         $invoice = $user->newInvoice(Carbon::now());
 
         $invoice->addItem(100, 'Item 1', 1);
-        $invoice->addItem( 200);
+        $invoice->addItem(200);
         $invoice = $invoice->create($options);
 
         $this->assertEquals($invoice->payable_with, 'all');
@@ -779,20 +806,19 @@ class GuPaymentTest extends TestCase
         ]];
 
         $invoice = $user->createInvoice(100, Carbon::now(), 'Um item', $options);
-        
+
         $config = [
             'due_date' => Carbon::now()->addDays(3),
             'keep_early_payment_discount' => true
         ];
 
-        $invoiceDuplicate = $user->duplicate($invoice->id,$config);
+        $invoiceDuplicate = $user->duplicate($invoice->id, $config);
         $canceledInvoice = $user->findInvoice($invoice->id);
         $this->assertEquals($canceledInvoice->status, 'canceled');
-        $this->assertEquals($invoiceDuplicate->status,'pending');
+        $this->assertEquals($invoiceDuplicate->status, 'pending');
         $this->assertEquals($canceledInvoice->total_cents, $invoiceDuplicate->total_cents);
-        $this->assertEquals($invoiceDuplicate->logs[0]->notes, "Segunda via gerada da FATURA # ".$canceledInvoice->id);
-        $this->assertEquals(count($canceledInvoice->items),count($invoiceDuplicate->items));
-
+        $this->assertEquals($invoiceDuplicate->logs[0]->notes, "Segunda via gerada da FATURA # " . $canceledInvoice->id);
+        $this->assertEquals(count($canceledInvoice->items), count($invoiceDuplicate->items));
     }
 
     protected function createUser()
@@ -806,6 +832,7 @@ class GuPaymentTest extends TestCase
     protected function getTestToken()
     {
         \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        \Iugu::setLogErrors(getenv("IUGU_LOG_ERRORS"));
 
         return \Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),
@@ -825,6 +852,7 @@ class GuPaymentTest extends TestCase
     protected function getTestTokenMasterCard()
     {
         \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        \Iugu::setLogErrors(getenv("IUGU_LOG_ERRORS"));
 
         return \Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),
@@ -844,6 +872,7 @@ class GuPaymentTest extends TestCase
     protected function getTestFailToken()
     {
         \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        \Iugu::setLogErrors(getenv("IUGU_LOG_ERRORS"));
 
         return \Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),

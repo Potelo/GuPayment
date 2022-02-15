@@ -176,6 +176,7 @@ class SubscriptionBuilder
     {
         $iuguSubscriptionModelIdColumn = getenv('IUGU_SUBSCRIPTION_MODEL_ID_COLUMN') ?: config('services.iugu.subscription_model_id_column', 'iugu_id');
         $iuguSubscriptionModelPlanColumn = getenv('IUGU_SUBSCRIPTION_MODEL_PLAN_COLUMN') ?: config('services.iugu.subscription_model_plan_column', 'iugu_plan');
+        $searchOnBadGateway = getenv('IUGU_SUBSCRIPTION_SEARCH_ON_BAD_GATEWAY') ?: config('services.iugu.subscription_search_on_bad_gateway', false);
 
         $customer = $this->getIuguCustomer($token, $options);
 
@@ -184,21 +185,27 @@ class SubscriptionBuilder
             return false;
         }
         $subscriptionIugu = null;
+        $payload = $this->buildPayload($customer->id);
 
         try {
-            $subscriptionIugu = $this->user->createIuguSubscription($this->buildPayload($customer->id));
+            $createdAtFrom = Carbon::now('America/Sao_Paulo');
+            $subscriptionIugu = $this->user->createIuguSubscription($payload);
         } catch (\Exception $e) {
-            if ($e->getCode() === 502) {
+            if ($e->getCode() === 502 && $searchOnBadGateway) {
                 sleep(5);
-                $userSubscription = $this->user->subscription(getenv('IUGU_SUBSCRIPTION_NAME') ?: config('services.iugu.subscription_name', 'default'));
-                if ($userSubscription) {
-                    $subscriptionIugu = $userSubscription->asIuguSubscription();
+                $subscriptions = $this->user->getIuguSubscriptions([
+                    'created_at_from' => $createdAtFrom,
+                    'plan_identifier' => $payload['plan_identifier']
+                ])->results();
+                if (!empty($subscriptions)) {
+                    $subscriptionIugu = $subscriptions[0];
+                } else {
+                    throw $e;
                 }
             } else {
                 throw $e;
             }
         }
-
         if (isset($subscriptionIugu->errors)) {
             if (isset($subscriptionIugu->LR)) {
                 $this->lr = $subscriptionIugu->LR;
