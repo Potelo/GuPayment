@@ -176,6 +176,7 @@ class SubscriptionBuilder
     {
         $iuguSubscriptionModelIdColumn = getenv('IUGU_SUBSCRIPTION_MODEL_ID_COLUMN') ?: config('services.iugu.subscription_model_id_column', 'iugu_id');
         $iuguSubscriptionModelPlanColumn = getenv('IUGU_SUBSCRIPTION_MODEL_PLAN_COLUMN') ?: config('services.iugu.subscription_model_plan_column', 'iugu_plan');
+        $searchOnBadGateway = getenv('IUGU_SUBSCRIPTION_SEARCH_ON_BAD_GATEWAY') ?: config('services.iugu.subscription_search_on_bad_gateway', false);
 
         $customer = $this->getIuguCustomer($token, $options);
 
@@ -183,9 +184,28 @@ class SubscriptionBuilder
             $this->lastError = $customer->errors;
             return false;
         }
+        $subscriptionIugu = null;
+        $payload = $this->buildPayload($customer->id);
 
-        $subscriptionIugu = $this->user->createIuguSubscription($this->buildPayload($customer->id));
-
+        try {
+            $createdAtFrom = Carbon::now('America/Sao_Paulo');
+            $subscriptionIugu = $this->user->createIuguSubscription($payload);
+        } catch (\Exception $e) {
+            if ($e->getCode() === 502 && $searchOnBadGateway) {
+                sleep(5);
+                $subscriptions = $this->user->getIuguSubscriptions([
+                    'created_at_from' => $createdAtFrom,
+                    'plan_identifier' => $payload['plan_identifier']
+                ])->results();
+                if (!empty($subscriptions)) {
+                    $subscriptionIugu = $subscriptions[0];
+                } else {
+                    throw $e;
+                }
+            } else {
+                throw $e;
+            }
+        }
         if (isset($subscriptionIugu->errors)) {
             if (isset($subscriptionIugu->LR)) {
                 $this->lr = $subscriptionIugu->LR;
@@ -229,7 +249,7 @@ class SubscriptionBuilder
      */
     protected function getIuguCustomer($token = null, array $options = [])
     {
-        if (! $this->user->getIuguUserId()) {
+        if (!$this->user->getIuguUserId()) {
             $customer = $this->user->createAsIuguCustomer(
                 $token,
                 array_merge($options, array_filter(['coupon' => $this->coupon]))
@@ -238,7 +258,7 @@ class SubscriptionBuilder
             $customer = $this->user->asIuguCustomer();
 
             if (!empty($options)) {
-                foreach($options as $key => $value){
+                foreach ($options as $key => $value) {
                     $customer->{$key} = $value;
                 }
                 $customer->save();
@@ -429,5 +449,4 @@ class SubscriptionBuilder
 
         return $this;
     }
-
 }

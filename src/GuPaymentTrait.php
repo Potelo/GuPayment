@@ -23,6 +23,13 @@ trait GuPaymentTrait
     protected static $apiKey;
 
     /**
+     * Iugu log errors control.
+     *
+     * @var bool
+     */
+    protected static $logErros;
+
+    /**
      * Make a "one off" charge on the customer for the given amount.
      *
      * @param  integer|null  $amount
@@ -33,8 +40,9 @@ trait GuPaymentTrait
      */
     public function charge($amount, array $options = [])
     {
-        if (! array_key_exists('items', $options) &&
-            ! array_key_exists('invoice_id', $options)
+        if (
+            !array_key_exists('items', $options) &&
+            !array_key_exists('invoice_id', $options)
         ) {
             $options['items'] = [];
 
@@ -45,37 +53,41 @@ trait GuPaymentTrait
             ]);
         }
 
-        if (! array_key_exists('customer_id', $options) && $this->hasIuguId()) {
+        if (!array_key_exists('customer_id', $options) && $this->hasIuguId()) {
             $options['customer_id'] = $this->getIuguUserId();
         }
 
-        if (! array_key_exists('token', $options) &&
-            ! array_key_exists('method', $options) &&
-            ! array_key_exists('customer_payment_method_id', $options) &&
-            (! $defaultCard = $this->defaultCard())
+        if (
+            !array_key_exists('token', $options) &&
+            !array_key_exists('method', $options) &&
+            !array_key_exists('customer_payment_method_id', $options) &&
+            (!$defaultCard = $this->defaultCard())
         ) {
             throw new InvalidArgumentException('No payment source provided.');
         }
 
-        if (! array_key_exists('invoice_id', $options) &&
-            ! array_key_exists('email', $options) &&
-            ! $this->hasIuguId()
+        if (
+            !array_key_exists('invoice_id', $options) &&
+            !array_key_exists('email', $options) &&
+            !$this->hasIuguId()
         ) {
             throw new InvalidArgumentException(
-                'No customer required data provided. '.
-                'Pass invoice_id or email or customer_id or use createAsIuguCustomer() to create a customer.'
+                'No customer required data provided. ' .
+                    'Pass invoice_id or email or customer_id or use createAsIuguCustomer() to create a customer.'
             );
         }
 
-        if (! array_key_exists('method', $options) &&
-            ! array_key_exists('token', $options) &&
-            ! array_key_exists('customer_payment_method_id', $options) &&
+        if (
+            !array_key_exists('method', $options) &&
+            !array_key_exists('token', $options) &&
+            !array_key_exists('customer_payment_method_id', $options) &&
             $defaultCard = isset($defaultCard) ? $defaultCard : $this->defaultCard()
         ) {
             $options['customer_payment_method_id'] = $defaultCard->id;
         }
 
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         return IuguCharge::create($options);
     }
@@ -108,7 +120,7 @@ trait GuPaymentTrait
             $parameters
         );
 
-        if (! is_null($iuguCards)) {
+        if (!is_null($iuguCards)) {
             foreach ($iuguCards->results() as $card) {
                 $cards[] = new Card($this, $card);
             }
@@ -134,6 +146,7 @@ trait GuPaymentTrait
         $options = array_merge($options, ['email' => $this->email]);
 
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         // Here we will create the customer instance on Iugu and store the ID of the
         // user from Iugu. This ID will correspond with the Iugu user instances
@@ -154,7 +167,7 @@ trait GuPaymentTrait
         // Next we will add the credit card to the user's account on Iugu using this
         // token that was provided to this method. This will allow us to bill users
         // when they subscribe to plans or we need to do one-off charges on them.
-        if (! is_null($token)) {
+        if (!is_null($token)) {
             $paymentMethod = $this->updateCard($token);
 
             // If exists error, return the object with the errors immediately
@@ -179,11 +192,11 @@ trait GuPaymentTrait
     {
         $customer = $this->asIuguCustomer();
 
-        if (! array_key_exists('description', $options)) {
+        if (!array_key_exists('description', $options)) {
             $options['description'] = 'Credit card';
         }
 
-        if (! array_key_exists('set_as_default', $options)) {
+        if (!array_key_exists('set_as_default', $options)) {
             $options['set_as_default'] = true;
         }
 
@@ -263,6 +276,7 @@ trait GuPaymentTrait
     public function createIuguSubscription($options)
     {
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         return IuguSubscription::create($options);
     }
@@ -276,6 +290,7 @@ trait GuPaymentTrait
     public function createIuguInvoice($options)
     {
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         return IuguInvoice::create($options);
     }
@@ -289,10 +304,24 @@ trait GuPaymentTrait
     public function getIuguSubscription($subscriptionId)
     {
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         return IuguSubscription::fetch($subscriptionId);
     }
 
+    /**
+     * Get user's Iugu Subscriptions
+     *
+     * @param array $params
+     * @return void
+     */
+    public function getIuguSubscriptions($params = [])
+    {
+        Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
+        $customer = $this->asIuguCustomer();
+        return IuguSubscription::search(array_merge(['customer_id' => $customer->id], $params));
+    }
 
     /**
      * Determine if the entity is on the given plan.
@@ -306,7 +335,7 @@ trait GuPaymentTrait
 
         $onPlan = $this->subscriptions->where($iuguSubscriptionModelPlanColumn, $plan)->first();
 
-        return ! is_null($onPlan);
+        return !is_null($onPlan);
     }
 
     /**
@@ -377,13 +406,14 @@ trait GuPaymentTrait
         $parameters = array_merge(['limit' => 24, 'customer_id' => $customer->id], $parameters);
 
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         $iuguInvoices = IuguInvoice::search($parameters)->results();
 
         // Here we will loop through the Iugu invoices and create our own custom Invoice
         // instances that have more helper methods and are generally more convenient to
         // work with than the plain Iugu objects are. Then, we'll return the array.
-        if (! is_null($iuguInvoices)) {
+        if (!is_null($iuguInvoices)) {
             foreach ($iuguInvoices as $invoice) {
                 if ($invoice->status == 'paid' || $includePending) {
                     $invoices[] = new Invoice($this, $invoice);
@@ -403,6 +433,7 @@ trait GuPaymentTrait
     public function findInvoice($id)
     {
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         try {
             return new Invoice($this, IuguInvoice::fetch($id));
@@ -447,7 +478,7 @@ trait GuPaymentTrait
      */
     public function hasIuguId()
     {
-        return ! is_null($this->getIuguUserId());
+        return !is_null($this->getIuguUserId());
     }
 
     /**
@@ -491,11 +522,12 @@ trait GuPaymentTrait
      */
     public function asIuguCustomer()
     {
-        if (! $this->getIuguUserId()) {
-            throw new InvalidArgumentException(class_basename($this).' is not a Iugu customer. See the createAsIuguCustomer method.');
+        if (!$this->getIuguUserId()) {
+            throw new InvalidArgumentException(class_basename($this) . ' is not a Iugu customer. See the createAsIuguCustomer method.');
         }
 
         Iugu::setApiKey($this->getApiKey());
+        Iugu::setLogErrors($this->getLogErrors());
 
         return IuguCustomer::fetch($this->getIuguUserId());
     }
@@ -516,6 +548,23 @@ trait GuPaymentTrait
         }
 
         return config('services.iugu.key');
+    }
+
+    /**
+     * Get Iugu log errors control
+     *
+     * @return bool
+     */
+    public static function getLogErrors()
+    {
+        if (static::$logErros) {
+            return static::$logErros;
+        }
+
+        if ($key = getenv('IUGU_LOG_ERRORS')) {
+            return $key;
+        }
+        return config('services.iugu.log_errors', 'true');
     }
 
     /**
@@ -578,7 +627,7 @@ trait GuPaymentTrait
      * @param array $config configuration of the duplicate
      * @return \Symfony\Component\HttpFoundation\Response
      */
-    public function duplicate($id,$config)
+    public function duplicate($id, $config)
     {
         $iuguInvoice = $this->findInvoice($id)->asIuguInvoice();
 
