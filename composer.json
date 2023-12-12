@@ -18,7 +18,7 @@
     "require": {
         "php": ">=7.4",
         "iugu/iugu": "dev-master",
-        "dompdf/dompdf": "^2.0"
+        "dompdf/dompdf": "^0.8.0"
     },
     "require-dev": {
         "orchestra/testbench": "7.x"
