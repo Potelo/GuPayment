@@ -2,12 +2,17 @@
 
 namespace Potelo\GuPayment\Tests;
 
+use Iugu;
 use Exception;
 use Carbon\Carbon;
+use Iugu_PaymentToken;
+use IuguObjectNotFound;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Schema\Builder;
 use Potelo\GuPayment\Tests\Fixtures\User;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Potelo\GuPayment\Http\Controllers\WebhookController;
@@ -23,14 +28,6 @@ class GuPaymentTest extends TestCase
     protected $iuguSubscriptionModelIdColumn;
 
     protected $iuguSubscriptionModelPlanColumn;
-
-    public static function setUpBeforeClass() : void
-    {
-        if (file_exists(__DIR__.'/../.env')) {
-            $dotenv = new \Dotenv\Dotenv(__DIR__.'/../');
-            $dotenv->load();
-        }
-    }
 
     public function setUp() : void
     {
@@ -153,19 +150,19 @@ class GuPaymentTest extends TestCase
         $invoice = $invoices->first();
 
         $this->assertEquals('R$ 5,00', $invoice->total());
-        $this->assertEquals($invoice->items[0]->description, 'Mudança de Plano: [antigo] Silver');
+        $this->assertEquals('Mudança de Plano: [antigo] Silver', $invoice->items[0]->description);
         $this->assertFalse($invoice->hasDiscount());
         $this->assertInstanceOf(Carbon::class, $invoice->date());
 
 
         // Invoice PDF test
-        /*$pdf = $user->downloadInvoice($invoice->id, [
+        $pdf = $user->downloadInvoice($invoice->id, [
                 'vendor'  => 'Sua Empresa',
                 'product' => 'Seu Produto'
         ]);
 
         // Then just save it like this
-        $this->assertStringStartsWith('%PDF-1.3', $pdf->getContent());*/
+        $this->assertStringStartsWith('%PDF-1.7', $pdf->getContent());
 
         // Swap plan, but skip charge
         // Swap Plan
@@ -273,7 +270,7 @@ class GuPaymentTest extends TestCase
 
         $cards = $user->cards();
         $this->assertInstanceOf(Collection::class, $cards);
-        $this->assertEquals($cards->count(), 1);
+        $this->assertEquals(1, $cards->count());
 
         $card = $cards->first()->asIuguCard()->data;
 
@@ -289,7 +286,7 @@ class GuPaymentTest extends TestCase
     {
         $user = $this->createUser();
 
-        $user->createAsIuguCustomer($token = $this->getTestToken());
+        $user->createAsIuguCustomer($this->getTestToken());
         $card = $user->createCard($token = $this->getTestTokenMasterCard());
 
         $this->assertEquals($token->extra_info->bin, $card->data->bin);
@@ -317,10 +314,10 @@ class GuPaymentTest extends TestCase
 
         try {
             $user->createAsIuguCustomer();
-            $createdCard = $user->createCard($token = $this->getTestToken());
+            $createdCard = $user->createCard($this->getTestToken());
 
             $card = $user->findCard($createdCard->id);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
@@ -336,7 +333,7 @@ class GuPaymentTest extends TestCase
 
         $user->createAsIuguCustomer();
 
-        $this->assertNull($user->findCard(1));
+        $this->assertNull($user->findCard('1'));
     }
 
     public function testDeleteACardFromCustomerCards()
@@ -345,10 +342,10 @@ class GuPaymentTest extends TestCase
 
         try {
             $user->createAsIuguCustomer();
-            $cardCreated = $user->createCard($token = $this->getTestToken());
+            $cardCreated = $user->createCard($this->getTestToken());
 
             $user->deleteCard($cardCreated);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
@@ -403,8 +400,8 @@ class GuPaymentTest extends TestCase
 
         try {
             $user->createAsIuguCustomer();
-            $createdCard = $user->createCard($token = $this->getTestToken());
-        } catch (\IuguObjectNotFound $e) {
+            $createdCard = $user->createCard($this->getTestToken());
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
@@ -424,12 +421,12 @@ class GuPaymentTest extends TestCase
 
         try {
             $user->createAsIuguCustomer();
-            $card = $user->createCard($token = $this->getTestTokenMasterCard());
+            $card = $user->createCard($this->getTestTokenMasterCard());
 
             $charge = $user->charge(250, [
                 'customer_payment_method_id' => $card->id,
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
@@ -465,12 +462,12 @@ class GuPaymentTest extends TestCase
                     ]
                 ]
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
         $this->assertTrue($charge->success);
-        $this->assertEquals($charge->method, 'bank_slip');
+        $this->assertEquals('bank_slip', $charge->method);
     }
 
     public function testSingleBankSlipChargeWithDefaultPaymentCardDefined()
@@ -498,12 +495,12 @@ class GuPaymentTest extends TestCase
                     ]
                 ]
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable.');
         }
 
         $this->assertTrue($charge->success);
-        $this->assertEquals($charge->method, 'bank_slip');
+        $this->assertEquals('bank_slip', $charge->method);
     }
 
     public function testCreatingOneSingleChargeWithoutPaymentSource()
@@ -526,7 +523,7 @@ class GuPaymentTest extends TestCase
         $token = $this->getTestToken();
 
         try {
-            $charge = $user->charge(100, [
+            $user->charge(100, [
                 'token' => $token->id,
             ]);
         } catch (Exception $e) {
@@ -555,13 +552,13 @@ class GuPaymentTest extends TestCase
         try {
             $user->createAsIuguCustomer($this->getTestToken());
             $charge = $user->charge(100);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable');
         }
 
         $this->assertTrue($charge->success);
-        $this->assertEquals($charge->items[0]['quantity'], 1);
-        $this->assertEquals($charge->items[0]['price_cents'], 100);
+        $this->assertEquals(1, $charge->items[0]['quantity']);
+        $this->assertEquals(100, $charge->items[0]['price_cents']);
     }
 
     public function testCreatingOneSingleChargePassingItems()
@@ -577,23 +574,23 @@ class GuPaymentTest extends TestCase
                     ['description' => 'Third Item',  'quantity' => 2, 'price_cents' => 150],
                 ],
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable');
         }
 
         $this->assertTrue($charge->success);
 
-        $this->assertEquals($charge->items[0]['description'], 'First Item');
-        $this->assertEquals($charge->items[0]['quantity'], 1);
-        $this->assertEquals($charge->items[0]['price_cents'], 100);
+        $this->assertEquals('First Item', $charge->items[0]['description']);
+        $this->assertEquals(1, $charge->items[0]['quantity']);
+        $this->assertEquals(100, $charge->items[0]['price_cents']);
 
-        $this->assertEquals($charge->items[1]['description'], 'Second Item');
-        $this->assertEquals($charge->items[1]['quantity'], 1);
-        $this->assertEquals($charge->items[1]['price_cents'], 250);
+        $this->assertEquals('Second Item', $charge->items[1]['description']);
+        $this->assertEquals(1, $charge->items[1]['quantity']);
+        $this->assertEquals(250, $charge->items[1]['price_cents']);
 
-        $this->assertEquals($charge->items[2]['description'], 'Third Item');
-        $this->assertEquals($charge->items[2]['quantity'], 2);
-        $this->assertEquals($charge->items[2]['price_cents'], 150);
+        $this->assertEquals('Third Item', $charge->items[2]['description']);
+        $this->assertEquals(2, $charge->items[2]['quantity']);
+        $this->assertEquals(150, $charge->items[2]['price_cents']);
     }
 
     public function testCreatingOneSingleChargePassingToken()
@@ -606,15 +603,15 @@ class GuPaymentTest extends TestCase
                 'token' => $token->id,
                 'email' => $user->email,
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable');
         }
 
         $this->assertTrue($charge->success);
         $this->assertEquals($charge->token, $token->id);
         $this->assertEquals($charge->email, $user->email);
-        $this->assertEquals($charge->items[0]['quantity'], 1);
-        $this->assertEquals($charge->items[0]['price_cents'], 100);
+        $this->assertEquals(1, $charge->items[0]['quantity']);
+        $this->assertEquals(100, $charge->items[0]['price_cents']);
     }
 
     public function testCreatingOneSingleChargePassingItemsAndToken()
@@ -632,7 +629,7 @@ class GuPaymentTest extends TestCase
                     ['description' => 'Third Item',  'quantity' => 2, 'price_cents' => 150],
                 ],
             ]);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable');
         }
 
@@ -640,17 +637,17 @@ class GuPaymentTest extends TestCase
         $this->assertEquals($charge->token, $token->id);
         $this->assertEquals($charge->email, $user->email);
 
-        $this->assertEquals($charge->items[0]['description'], 'First Item');
-        $this->assertEquals($charge->items[0]['quantity'], 1);
-        $this->assertEquals($charge->items[0]['price_cents'], 100);
+        $this->assertEquals('First Item', $charge->items[0]['description']);
+        $this->assertEquals(1, $charge->items[0]['quantity']);
+        $this->assertEquals(100, $charge->items[0]['price_cents']);
 
-        $this->assertEquals($charge->items[1]['description'], 'Second Item');
-        $this->assertEquals($charge->items[1]['quantity'], 1);
-        $this->assertEquals($charge->items[1]['price_cents'], 250);
+        $this->assertEquals('Second Item', $charge->items[1]['description']);
+        $this->assertEquals(1, $charge->items[1]['quantity']);
+        $this->assertEquals(250, $charge->items[1]['price_cents']);
 
-        $this->assertEquals($charge->items[2]['description'], 'Third Item');
-        $this->assertEquals($charge->items[2]['quantity'], 2);
-        $this->assertEquals($charge->items[2]['price_cents'], 150);
+        $this->assertEquals('Third Item', $charge->items[2]['description']);
+        $this->assertEquals(2, $charge->items[2]['quantity']);
+        $this->assertEquals(150, $charge->items[2]['price_cents']);
     }
 
     public function testRefundInvoice()
@@ -660,7 +657,7 @@ class GuPaymentTest extends TestCase
         try {
             $user->createAsIuguCustomer($this->getTestToken());
             $charge = $user->charge(100);
-        } catch (\IuguObjectNotFound $e) {
+        } catch (IuguObjectNotFound $e) {
             $this->fail('Service unavailable');
         }
 
@@ -691,7 +688,7 @@ class GuPaymentTest extends TestCase
     {
         $user = $this->createUser();
 
-        $user->createAsIuguCustomer($token = $this->getTestToken());
+        $user->createAsIuguCustomer($this->getTestToken());
 
         $options = ['payer' => [
             'cpf_cnpj' => '169.893.520-00',
@@ -704,8 +701,8 @@ class GuPaymentTest extends TestCase
 
         $invoice = $user->createInvoice(100, Carbon::now(), 'Um item', $options);
 
-        $this->assertEquals($invoice->payable_with, 'all');
-        $this->assertEquals($invoice->total, 'R$ 1,00');
+        $this->assertEquals('all', $invoice->payable_with);
+        $this->assertEquals('R$ 1,00', $invoice->total);
 
         $invoice = $user->newInvoice(Carbon::now());
 
@@ -713,8 +710,8 @@ class GuPaymentTest extends TestCase
         $invoice->addItem( 200);
         $invoice = $invoice->create($options);
 
-        $this->assertEquals($invoice->payable_with, 'all');
-        $this->assertEquals($invoice->total, 'R$ 3,00');
+        $this->assertEquals('all', $invoice->payable_with);
+        $this->assertEquals('R$ 3,00', $invoice->total);
     }
 
     public function testCreatingSubscriptionWithRecurrentDiscount()
@@ -745,8 +742,12 @@ class GuPaymentTest extends TestCase
 
         $subscriptionIugu = $user->subscription('main')->asIuguSubscription();
 
-        $this->assertEquals(1, count($subscriptionIugu->subitems));
-        $this->assertArraySubset($item1, (array)$subscriptionIugu->subitems[0]);
+        $this->assertCount(1, $subscriptionIugu->subitems);
+
+        $this->assertEquals($item1['description'], $subscriptionIugu->subitems[0]->description);
+        $this->assertEquals($item1['price_cents'], $subscriptionIugu->subitems[0]->price_cents);
+        $this->assertEquals($item1['quantity'], $subscriptionIugu->subitems[0]->quantity);
+        $this->assertEquals($item1['recurrent'], $subscriptionIugu->subitems[0]->recurrent);
     }
 
     public function testCanRetrieveSoftDeletedUser()
@@ -767,7 +768,7 @@ class GuPaymentTest extends TestCase
     {
         $user = $this->createUser();
 
-        $user->createAsIuguCustomer($token = $this->getTestToken());
+        $user->createAsIuguCustomer($this->getTestToken());
 
         $options = ['payer' => [
             'cpf_cnpj' => '169.893.520-00',
@@ -787,12 +788,37 @@ class GuPaymentTest extends TestCase
 
         $invoiceDuplicate = $user->duplicate($invoice->id,$config);
         $canceledInvoice = $user->findInvoice($invoice->id);
-        $this->assertEquals($canceledInvoice->status, 'canceled');
-        $this->assertEquals($invoiceDuplicate->status,'pending');
+        $this->assertEquals('canceled', $canceledInvoice->status);
+        $this->assertEquals('pending', $invoiceDuplicate->status);
         $this->assertEquals($canceledInvoice->total_cents, $invoiceDuplicate->total_cents);
-        $this->assertEquals($invoiceDuplicate->logs[0]->notes, "Segunda via gerada da FATURA # ".$canceledInvoice->id);
-        $this->assertEquals(count($canceledInvoice->items),count($invoiceDuplicate->items));
+        $this->assertNotEmpty(array_filter($invoiceDuplicate->logs, fn($log) => $log->notes == "Segunda via gerada da FATURA # $canceledInvoice->id"));
+        $this->assertSameSize($canceledInvoice->items, $invoiceDuplicate->items);
 
+    }
+
+    public function testDownloadInvoice()
+    {
+        $user = $this->createUser();
+
+        $user->createAsIuguCustomer($this->getTestToken());
+
+        $options = ['payer' => [
+            'cpf_cnpj' => '169.893.520-00',
+            'address' => [
+                'zip_code' => '41150-120',
+                'number' => '1'
+            ],
+            'name' => $user->name
+        ]];
+
+        $invoice = $user->createInvoice(100, Carbon::now(), 'Um item', $options);
+
+        $pdf = $user->downloadInvoice($invoice->id, [
+                'vendor'  => 'Sua Empresa',
+                'product' => 'Seu Produto'
+        ]);
+
+        $this->assertStringStartsWith('%PDF-1.7', $pdf->getContent());
     }
 
     protected function createUser()
@@ -805,9 +831,9 @@ class GuPaymentTest extends TestCase
 
     protected function getTestToken()
     {
-        \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        Iugu::setApiKey(getenv('IUGU_APIKEY'));
 
-        return \Iugu_PaymentToken::create([
+        return Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),
             "method" => "credit_card",
             "data" => [
@@ -824,9 +850,9 @@ class GuPaymentTest extends TestCase
 
     protected function getTestTokenMasterCard()
     {
-        \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        Iugu::setApiKey(getenv('IUGU_APIKEY'));
 
-        return \Iugu_PaymentToken::create([
+        return Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),
             "method" => "credit_card",
             "data" => [
@@ -843,9 +869,9 @@ class GuPaymentTest extends TestCase
 
     protected function getTestFailToken()
     {
-        \Iugu::setApiKey(getenv('IUGU_APIKEY'));
+        Iugu::setApiKey(getenv('IUGU_APIKEY'));
 
-        return \Iugu_PaymentToken::create([
+        return Iugu_PaymentToken::create([
             "account_id" =>  getenv('IUGU_ID'),
             "method" => "credit_card",
             "data" => [
@@ -863,12 +889,12 @@ class GuPaymentTest extends TestCase
     /**
      * Schema Helpers.
      */
-    protected function schema()
+    protected function schema(): Builder
     {
         return $this->connection()->getSchemaBuilder();
     }
 
-    protected function connection()
+    protected function connection(): ConnectionInterface
     {
         return Eloquent::getConnectionResolver()->connection();
     }

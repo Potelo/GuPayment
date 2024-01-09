@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         backupGlobals="false"
+         backupStaticAttributes="false"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         processIsolation="false"
+         stopOnFailure="false"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+        <exclude>
+            <directory>./src/migrations</directory>
+        </exclude>
+    </coverage>
+    <testsuites>
+        <testsuite name="Package Test Suite">
+            <directory suffix=".php">./tests/</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+        <env name="IUGU_APIKEY" value=""/>
+        <env name="IUGU_ID" value=""/>
+        <env name="GUPAYMENT_SIGNATURE_TABLE" value="subscriptions"/>
+        <env name="IUGU_MODEL" value="\Potelo\GuPayment\Tests\Fixtures\User"/>
+        <env name="IUGU_MODEL_FOREIGN_KEY" value="user_id"/>
+        <env name="IUGU_USER_MODEL_COLUMN" value="iugu_id"/>
+        <env name="IUGU_SUBSCRIPTION_MODEL_ID_COLUMN" value="iugu_id"/>
+        <env name="IUGU_SUBSCRIPTION_MODEL_PLAN_COLUMN" value="iugu_plan"/>
+    </php>
+</phpunit>

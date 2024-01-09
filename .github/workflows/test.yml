@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  phpunit-tests:
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build Docker image
+        run: docker build -t gu-payment .
+      - name: Execute tests via PHPUnit
+        env:
+          IUGU_ID: ${{ secrets.IUGU_ID }}
+          IUGU_APIKEY: ${{ secrets.IUGU_APIKEY }}
+        run: |
+          docker run \
+            --env IUGU_ID \
+            --env IUGU_APIKEY \
+            gu-payment

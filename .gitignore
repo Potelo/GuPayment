@@ -5,3 +5,5 @@ composer.lock
 .phpintel
 .env
 .idea
+/.phpunit.result.cache
+phpunit.xml
