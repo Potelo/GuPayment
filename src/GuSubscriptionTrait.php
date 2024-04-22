@@ -203,20 +203,23 @@ trait GuSubscriptionTrait
     /**
      * Resume the cancelled subscription.
      *
+     * @param bool $ignoreChargeResult
      * @return $this
      *
      * @throws \LogicException
      */
-    public function resume()
+    public function resume($ignoreChargeResult = false)
     {
         $subscription = $this->asIuguSubscription();
 
         $subscription->activate();
 
-        // Finally, we will remove the ending timestamp from the user's record in the
-        // local database to indicate that the subscription is active again and is
-        // no longer "cancelled". Then we will save this record in the database.
-        $this->fill(['ends_at' => null])->save();
+        if ($ignoreChargeResult) {
+            // Finally, we will remove the ending timestamp from the user's record in the
+            // local database to indicate that the subscription is active again and is
+            // no longer "cancelled". Then we will save this record in the database.
+            $this->fill(['ends_at' => null])->save();
+        }
 
         return $this;
     }
