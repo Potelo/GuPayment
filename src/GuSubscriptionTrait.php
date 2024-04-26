@@ -208,7 +208,7 @@ trait GuSubscriptionTrait
      *
      * @throws \LogicException
      */
-    public function resume($ignoreChargeResult = false)
+    public function resume($ignoreChargeResult = true)
     {
         $subscription = $this->asIuguSubscription();
 
