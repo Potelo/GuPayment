@@ -688,16 +688,14 @@ class GuPaymentTest extends TestCase
         $user = $this->createUser();
 
         // Create Subscription
-        $user->newSubscription('main', 'gold', [], ['payable_with' => 'credit_card'])->validateCard()->trialDays(30)->create($this->getTestToken());
+        $subscription = $user->newSubscription('main', 'gold', [], ['payable_with' => 'credit_card'])->validateCard()->trialDays(30)->create($this->getTestToken());
 
         $this->assertEquals(1, $user->subscriptions()->count());
         $this->assertEquals(1, $user->invoices(true)->count());
         $this->assertEquals('refunded', $user->invoices(true)->first()->status);
         $this->assertEquals(100, $user->invoices(true)->first()->total_cents);
 
-        $subscriptionIugu = $user->subscription('main')->asIuguSubscription();
-
-        $this->assertEquals('credit_card', $subscriptionIugu->payable_with);
+        $this->assertEquals('credit_card', $subscription->payable_with);
     }
 
     public function testCreateInvoice()
