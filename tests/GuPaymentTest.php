@@ -690,6 +690,8 @@ class GuPaymentTest extends TestCase
         // Create Subscription
         $subscription = $user->newSubscription('main', 'gold', [], ['payable_with' => 'credit_card'])->validateCard()->trialDays(30)->create($this->getTestToken());
 
+        sleep(30);
+
         $this->assertEquals(1, $user->subscriptions()->count());
         $this->assertEquals(1, $user->invoices(true)->count());
         $this->assertEquals('refunded', $user->invoices(true)->first()->status);
