@@ -143,10 +143,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('silver', $subscription->{$this->iuguSubscriptionModelPlanColumn});
 
         // Delay, wait for iugu register invoice
-        sleep(2);
+        sleep(10);
 
         // Invoice Tests
-        $invoices = $user->invoices();
+        $invoices = $user->invoices(false, ['subscription_id' => $subscription->id]);
         $invoice = $invoices->first();
 
         $this->assertEquals('R$ 5,00', $invoice->total());
@@ -170,10 +170,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('gold', $subscription->{$this->iuguSubscriptionModelPlanColumn});
 
         // Delay, wait for iugu register invoice
-        sleep(2);
+        sleep(10);
 
         // no new invoice created
-        $invoices = $user->invoices();
+        $invoices = $user->invoices(false, ['subscription_id' => $subscription->id]);
         $this->assertEquals(2, $invoices->count());
 
         $user = $this->createUser();
@@ -780,7 +780,7 @@ class GuPaymentTest extends TestCase
         ]];
 
         $invoice = $user->createInvoice(100, Carbon::now(), 'Um item', $options);
-        
+
         $config = [
             'due_date' => Carbon::now()->addDays(3),
             'keep_early_payment_discount' => true
@@ -821,6 +821,9 @@ class GuPaymentTest extends TestCase
         $this->assertStringStartsWith('%PDF-1.7', $pdf->getContent());
     }
 
+    /**
+     * @return \Potelo\GuPayment\GuPaymentTrait
+     */
     protected function createUser()
     {
         return User::create([
