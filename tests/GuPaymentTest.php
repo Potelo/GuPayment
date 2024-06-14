@@ -697,7 +697,9 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('refunded', $user->invoices(true)->first()->status);
         $this->assertEquals(100, $user->invoices(true)->first()->total_cents);
 
-        $this->assertEquals('credit_card', $subscription->payable_with);
+        $subscriptionIugu = $user->subscription('main')->asIuguSubscription();
+
+        $this->assertEquals('credit_card', $subscriptionIugu->payable_with);
     }
 
     public function testCreateInvoice()
