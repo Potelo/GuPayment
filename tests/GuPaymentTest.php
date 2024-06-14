@@ -29,6 +29,23 @@ class GuPaymentTest extends TestCase
 
     protected $iuguSubscriptionModelPlanColumn;
 
+    private function getLastInvoice($user, $subscription, $tries = 0)
+    {
+        $invoice = $user->invoices(false, ['subscription_id' => $subscription->id])->first();
+
+        if ($invoice) {
+            return $invoice;
+        }
+
+        if ($tries > 5) {
+            throw new Exception('Invoice not found.');
+        }
+
+        sleep(pow(3, $tries));
+
+        return $this->getLastInvoice($user, $subscription, $tries + 1);
+    }
+
     public function setUp() : void
     {
         parent::setUp();
@@ -143,11 +160,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('silver', $subscription->{$this->iuguSubscriptionModelPlanColumn});
 
         // Delay, wait for iugu register invoice
-        sleep(10);
+        sleep(30);
 
         // Invoice Tests
-        $invoices = $user->invoices(false, ['subscription_id' => $subscription->id]);
-        $invoice = $invoices->first();
+        $invoice = $this->getLastInvoice($user, $subscription);
 
         $this->assertEquals('R$ 5,00', $invoice->total());
         $this->assertEquals('Mudança de Plano: [antigo] Silver', $invoice->items[0]->description);
