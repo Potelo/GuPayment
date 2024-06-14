@@ -29,6 +29,23 @@ class GuPaymentTest extends TestCase
 
     protected $iuguSubscriptionModelPlanColumn;
 
+    private function getLastInvoice($user, $subscription, $tries = 0)
+    {
+        $invoice = $user->invoices(false, ['subscription_id' => $subscription->id])->first();
+
+        if ($invoice) {
+            return $invoice;
+        }
+
+        if ($tries > 5) {
+            throw new Exception('Invoice not found.');
+        }
+
+        sleep(pow(3, $tries));
+
+        return $this->getLastInvoice($user, $subscription, $tries + 1);
+    }
+
     public function setUp() : void
     {
         parent::setUp();
@@ -143,11 +160,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('silver', $subscription->{$this->iuguSubscriptionModelPlanColumn});
 
         // Delay, wait for iugu register invoice
-        sleep(2);
+        sleep(30);
 
         // Invoice Tests
-        $invoices = $user->invoices();
-        $invoice = $invoices->first();
+        $invoice = $this->getLastInvoice($user, $subscription);
 
         $this->assertEquals('R$ 5,00', $invoice->total());
         $this->assertEquals('Mudança de Plano: [antigo] Silver', $invoice->items[0]->description);
@@ -170,10 +186,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals('gold', $subscription->{$this->iuguSubscriptionModelPlanColumn});
 
         // Delay, wait for iugu register invoice
-        sleep(2);
+        sleep(10);
 
         // no new invoice created
-        $invoices = $user->invoices();
+        $invoices = $user->invoices(false, ['subscription_id' => $subscription->id]);
         $this->assertEquals(2, $invoices->count());
 
         $user = $this->createUser();
@@ -672,7 +688,9 @@ class GuPaymentTest extends TestCase
         $user = $this->createUser();
 
         // Create Subscription
-        $user->newSubscription('main', 'gold', [], ['payable_with' => 'credit_card'])->validateCard()->trialDays(30)->create($this->getTestToken());
+        $subscription = $user->newSubscription('main', 'gold', [], ['payable_with' => 'credit_card'])->validateCard()->trialDays(30)->create($this->getTestToken());
+
+        sleep(30);
 
         $this->assertEquals(1, $user->subscriptions()->count());
         $this->assertEquals(1, $user->invoices(true)->count());
@@ -780,7 +798,7 @@ class GuPaymentTest extends TestCase
         ]];
 
         $invoice = $user->createInvoice(100, Carbon::now(), 'Um item', $options);
-        
+
         $config = [
             'due_date' => Carbon::now()->addDays(3),
             'keep_early_payment_discount' => true
@@ -821,6 +839,9 @@ class GuPaymentTest extends TestCase
         $this->assertStringStartsWith('%PDF-1.7', $pdf->getContent());
     }
 
+    /**
+     * @return \Potelo\GuPayment\GuPaymentTrait
+     */
     protected function createUser()
     {
         return User::create([

@@ -94,6 +94,19 @@ trait GuPaymentTrait
     }
 
     /**
+     * Set customer's default card.
+     *
+     * @param String $paymentMethodId
+     * @return void
+     */
+    public function setDefaultCard($paymentMethodId)
+    {
+        $customer = $this->asIuguCustomer();
+        $customer->default_payment_method_id = $paymentMethodId;
+        $customer->save();
+    }
+
+    /**
      * Get a collection of the entity's cards.
      *
      * @param  array $parameters
