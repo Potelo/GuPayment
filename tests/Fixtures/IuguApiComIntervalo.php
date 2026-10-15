@@ -9,6 +9,8 @@ use Iugu_APIRequest;
  */
 class IuguApiComIntervalo extends Iugu_APIRequest
 {
+    public $ultimaRequisicao;
+
     private $api;
 
     private $aguardar;
@@ -23,6 +25,8 @@ class IuguApiComIntervalo extends Iugu_APIRequest
 
     public function request($method, $url, $data = [], $headers = [])
     {
+        $this->ultimaRequisicao = [$method, $url, $data, $headers];
+
         // 1,5 s mantém a suíte abaixo das 50 requisições/minuto do sandbox.
         ($this->aguardar)(1500000);
 

@@ -34,6 +34,7 @@ class IuguApiComIntervaloTest extends TestCase
         $this->assertSame($resposta, $cliente->request('POST', $url, $dados, $headers));
         $this->assertSame($resposta, $cliente->request('POST', $url, $dados, $headers));
         $this->assertSame([1500000, 'requisicao', 1500000, 'requisicao'], $eventos);
+        $this->assertSame(['POST', $url, $dados, $headers], $cliente->ultimaRequisicao);
     }
 
     /**
