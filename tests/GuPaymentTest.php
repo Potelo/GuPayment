@@ -3,6 +3,7 @@
 namespace Potelo\GuPayment\Tests;
 
 use Iugu;
+use APIResource;
 use Exception;
 use Carbon\Carbon;
 use Iugu_PaymentToken;
@@ -98,6 +99,8 @@ class GuPaymentTest extends TestCase
     {
         $this->schema()->drop('users');
         $this->schema()->drop('subscriptions');
+
+        parent::tearDown();
     }
 
     /**
@@ -609,7 +612,10 @@ class GuPaymentTest extends TestCase
         $this->assertEquals(150, $charge->items[2]['price_cents']);
     }
 
-    public function testCreatingOneSingleChargePassingToken()
+    /**
+     * Cobra com o token enviado mesmo quando o sandbox devolve um token genérico.
+     */
+    public function testCreatingOneSingleChargePassingToken(): void
     {
         $user = $this->createUser();
 
@@ -624,13 +630,20 @@ class GuPaymentTest extends TestCase
         }
 
         $this->assertTrue($charge->success);
-        $this->assertEquals($charge->token, $token->id);
+        // O sandbox pode devolver um token genérico; confira o token da requisição.
+        $requisicao = APIResource::API()->ultimaRequisicao;
+        $this->assertSame('POST', $requisicao[0]);
+        $this->assertSame(Iugu::getBaseURI().'/charge', $requisicao[1]);
+        $this->assertSame($token->id, $requisicao[2]['token']);
         $this->assertEquals($charge->email, $user->email);
         $this->assertEquals(1, $charge->items[0]['quantity']);
         $this->assertEquals(100, $charge->items[0]['price_cents']);
     }
 
-    public function testCreatingOneSingleChargePassingItemsAndToken()
+    /**
+     * Preserva o token enviado e os itens da cobrança sem exigir seu eco na resposta.
+     */
+    public function testCreatingOneSingleChargePassingItemsAndToken(): void
     {
         $user = $this->createUser();
 
@@ -650,7 +663,11 @@ class GuPaymentTest extends TestCase
         }
 
         $this->assertTrue($charge->success);
-        $this->assertEquals($charge->token, $token->id);
+        // O sandbox pode devolver um token genérico; confira o token da requisição.
+        $requisicao = APIResource::API()->ultimaRequisicao;
+        $this->assertSame('POST', $requisicao[0]);
+        $this->assertSame(Iugu::getBaseURI().'/charge', $requisicao[1]);
+        $this->assertSame($token->id, $requisicao[2]['token']);
         $this->assertEquals($charge->email, $user->email);
 
         $this->assertEquals('First Item', $charge->items[0]['description']);
