@@ -123,7 +123,7 @@ trait GuSubscriptionTrait
      * @param \Carbon\Carbon $expiresAt
      * @return $this
      */
-    public function swap($plan, $skipCharge = false, Carbon $expiresAt = null)
+    public function swap($plan, $skipCharge = false, ?Carbon $expiresAt = null)
     {
         $subscription = $this->asIuguSubscription();
 
