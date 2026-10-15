@@ -98,6 +98,8 @@ class GuPaymentTest extends TestCase
     {
         $this->schema()->drop('users');
         $this->schema()->drop('subscriptions');
+
+        parent::tearDown();
     }
 
     /**

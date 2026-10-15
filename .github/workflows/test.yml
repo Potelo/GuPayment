@@ -6,6 +6,11 @@ on:
       - main
   pull_request:
 
+# Os PRs usam a mesma conta sandbox; não execute suítes simultaneamente.
+concurrency:
+  group: gu-payment-sandbox
+  cancel-in-progress: false
+
 jobs:
   phpunit-tests:
 
